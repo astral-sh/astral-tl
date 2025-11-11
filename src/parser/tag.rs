@@ -61,7 +61,7 @@ impl<'a> Attributes<'a> {
     /// Checks whether a given string is in the class names list
     pub fn is_class_member<B: AsRef<[u8]>>(&self, member: B) -> bool {
         self.class_iter()
-            .map_or(false, |mut i| i.any(|s| s.as_bytes() == member.as_ref()))
+            .is_some_and(|mut i| i.any(|s| s.as_bytes() == member.as_ref()))
     }
 
     /// Checks whether this attributes collection contains a given key and returns its value
@@ -170,7 +170,7 @@ impl<'a> Attributes<'a> {
     }
 
     /// Returns an iterator `(attribute_key, attribute_value)` over the attributes of this `HTMLTag`
-    pub fn iter(&self) -> impl Iterator<Item = (Cow<str>, Option<Cow<str>>)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (Cow<'_, str>, Option<Cow<'_, str>>)> + '_ {
         self.raw
             .iter()
             .map(|(k, v)| {
@@ -181,11 +181,11 @@ impl<'a> Attributes<'a> {
             })
             .chain([
                 (
-                    self.id.is_some().then(|| Cow::Borrowed("id")),
+                    self.id.is_some().then_some(Cow::Borrowed("id")),
                     self.id.as_ref().map(|x| x.as_utf8_str()),
                 ),
                 (
-                    self.class.is_some().then(|| Cow::Borrowed("class")),
+                    self.class.is_some().then_some(Cow::Borrowed("class")),
                     self.class.as_ref().map(|x| x.as_utf8_str()),
                 ),
             ])

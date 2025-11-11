@@ -19,7 +19,19 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-          components: miri
+          components: miri, rustfmt, clippy
+
+      - name: Format
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --check
+
+      - name: Clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --workspace --all-targets -- -D warnings
 
       - name: Test
         uses: actions-rs/cargo@v1

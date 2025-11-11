@@ -54,8 +54,8 @@ impl<'a> VDom<'a> {
                 .iter()
                 .enumerate()
                 .find(|(_, node)| {
-                    node.as_tag().map_or(false, |tag| {
-                        tag._attributes.id.as_ref().map_or(false, |x| x.eq(&bytes))
+                    node.as_tag().is_some_and(|tag| {
+                        tag._attributes.id.as_ref().is_some_and(|x| x.eq(&bytes))
                     })
                 })
                 .map(|(id, _)| NodeHandle::new(id as InnerNodeHandle))

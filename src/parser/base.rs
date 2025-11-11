@@ -53,7 +53,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub(crate) fn new(input: &str, options: ParserOptions) -> Parser {
+    pub(crate) fn new(input: &str, options: ParserOptions) -> Parser<'_> {
         Parser {
             stack: Vec::with_capacity(4),
             options,
@@ -159,7 +159,7 @@ impl<'a> Parser<'a> {
 
         self.skip_whitespaces();
 
-        let value = if let Some(quote) = self.stream.expect_oneof_and_skip(&[b'"', b'\'']) {
+        let value = if let Some(quote) = self.stream.expect_oneof_and_skip(b"\"'") {
             self.read_to(quote)
         } else {
             self.read_to3([b' ', b'\n', b'>'])
@@ -226,7 +226,7 @@ impl<'a> Parser<'a> {
             .last()
             .and_then(|last_handle| last_handle.get(self))
             .and_then(|last_item| last_item.as_tag())
-            .map_or(false, |last_tag| last_tag.name() == closing_tag_name);
+            .is_some_and(|last_tag| last_tag.name() == closing_tag_name);
 
         if !closing_tag_matches_parent {
             return;

@@ -29,7 +29,7 @@ impl<'a> Parser<'a> {
         let start = self.stream.idx;
 
         while !self.stream.is_eof() {
-            let is_ident = self.stream.current().copied().map_or(false, util::is_ident);
+            let is_ident = self.stream.current().copied().is_some_and(util::is_ident);
             if !is_ident {
                 break;
             } else {
@@ -83,7 +83,7 @@ impl<'a> Parser<'a> {
             }
             Some(b'=') => {
                 self.stream.advance();
-                let quote = self.stream.expect_oneof_and_skip(&[b'"', b'\'']);
+                let quote = self.stream.expect_oneof_and_skip(b"\"'");
                 let value = self.read_identifier();
                 if let Some(quote) = quote {
                     // Only require the given quote if the value starts with a quote
@@ -95,7 +95,7 @@ impl<'a> Parser<'a> {
             Some(c @ b'~' | c @ b'^' | c @ b'$' | c @ b'*') => {
                 self.stream.advance();
                 self.stream.expect_and_skip(b'=')?;
-                let quote = self.stream.expect_oneof_and_skip(&[b'"', b'\'']);
+                let quote = self.stream.expect_oneof_and_skip(b"\"'");
                 let value = self.read_identifier();
                 if let Some(quote) = quote {
                     // Only require the given quote if the value starts with a quote

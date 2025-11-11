@@ -52,7 +52,7 @@ impl<'a, T: Eq + Copy> Stream<'a, T> {
 impl<'a, T> Stream<'a, T> {
     /// Creates a new stream
     #[inline]
-    pub fn new(data: &'a [T]) -> Stream<T> {
+    pub fn new(data: &'a [T]) -> Stream<'a, T> {
         Self { data, idx: 0 }
     }
 
@@ -65,7 +65,7 @@ impl<'a, T> Stream<'a, T> {
     /// Returns a reference to the underlying slice
     #[inline]
     pub fn data(&self) -> &[T] {
-        &self.data
+        self.data
     }
 
     #[inline]

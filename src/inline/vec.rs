@@ -20,6 +20,12 @@ impl<T, const N: usize> InlineVec<T, N> {
         self.0.len()
     }
 
+    /// Returns true if the vector contains no elements
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Checks whether this vector is allocated on the heap
     #[inline]
     pub fn is_heap_allocated(&self) -> bool {
@@ -161,7 +167,7 @@ impl<T, const N: usize> InlineVecInner<T, N> {
             InlineVecInner::Inline { len, data } => {
                 let mut new_data = Vec::with_capacity(*len);
 
-                let iter = data.into_iter().take(*len);
+                let iter = data.iter().take(*len);
 
                 for element in iter {
                     new_data.push(unsafe { T::clone(&*element.as_ptr()) });
