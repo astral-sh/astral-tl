@@ -1,14 +1,14 @@
 [package]
-name = "tl"
+name = "astral-tl"
 version = "0.7.8"
 authors = ["y21"]
 edition = "2021"
 license = "MIT"
 description = "Fast HTML parser written in pure Rust"
-repository = "https://github.com/y21/tl"
-homepage = "https://github.com/y21/tl"
+repository = "https://github.com/astral-sh/astral-tl"
+homepage = "https://github.com/astral-sh/astral-tl"
 readme = "README.md"
-documentation = "https://docs.rs/tl"
+documentation = "https://docs.rs/astral-tl"
 keywords = ["html", "parser"]
 categories = ["parser-implementations", "parsing"]
 exclude = [".github/*"]
@@ -22,10 +22,12 @@ __INTERNALS_DO_NOT_USE = []
 
 [dependencies]
 
-
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }
 
 [[bench]]
 name = "tl"
 harness = false
+
+[lib]
+name = "tl"

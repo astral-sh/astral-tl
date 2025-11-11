@@ -1,0 +1,28 @@
+name: Format
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - "**.yml"
+      - "**.yaml"
+      - "**.md"
+
+jobs:
+  prettier:
+    name: Prettier
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "25"
+
+      - run: npm install -g prettier@3.6.2
+      - run: prettier --check "**/*.{yml,yaml}"
+      - run: prettier --check --prose-wrap always "**/*.md"

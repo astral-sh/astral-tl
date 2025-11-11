@@ -1,8 +1,7 @@
 on:
   push:
-    branches: [master, staging, trying]
+    branches: [main]
   pull_request:
-    branches: [master]
 
 name: Test
 
