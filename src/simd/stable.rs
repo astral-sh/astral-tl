@@ -17,9 +17,9 @@ pub fn find_multi<const N: usize>(haystack: &[u8], needle: [u8; N]) -> Option<us
         index = i * 16;
         let mut mask = 0u16;
 
-        for (j, &byte) in chunk.into_iter().enumerate() {
-            for k in 0..N {
-                mask |= ((byte == needle[k]) as u16) << j;
+        for (j, &byte) in chunk.iter().enumerate() {
+            for &n in &needle {
+                mask |= ((byte == n) as u16) << j;
             }
         }
 
@@ -40,7 +40,7 @@ pub fn find(haystack: &[u8], needle: u8) -> Option<usize> {
         index = i * 16;
         let mut mask = 0u16;
 
-        for (j, &byte) in chunk.into_iter().enumerate() {
+        for (j, &byte) in chunk.iter().enumerate() {
             mask |= ((byte == needle) as u16) << j;
         }
 

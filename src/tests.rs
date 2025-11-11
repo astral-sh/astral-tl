@@ -161,7 +161,7 @@ pub fn children_mut() {
 
     let mut children = child.children_mut();
     let top = children.top_mut();
-    let handle = top[0].clone();
+    let handle = top[0];
     let node = handle.get_mut(dom.parser_mut()).unwrap();
     *node = Node::Raw("Hello".into());
 
@@ -186,8 +186,8 @@ fn nested_inner_text() {
 fn owned_dom() {
     let owned_dom = {
         let input = String::from("<p id=\"test\">hello</p>");
-        let dom = unsafe { parse_owned(input, ParserOptions::default()).unwrap() };
-        dom
+
+        unsafe { parse_owned(input, ParserOptions::default()).unwrap() }
     };
 
     let dom = owned_dom.get_ref();
@@ -229,7 +229,7 @@ fn with() {
     let tag = dom
         .nodes()
         .iter()
-        .find(|x| x.as_tag().map_or(false, |x| x.name() == "span"));
+        .find(|x| x.as_tag().is_some_and(|x| x.name() == "span"));
 
     assert_eq!(
         tag.map(|tag| tag.inner_text(parser)),
@@ -251,7 +251,7 @@ fn dom_nodes() {
     let element = dom
         .nodes()
         .iter()
-        .find(|x| x.as_tag().map_or(false, |x| x.name().eq("a")));
+        .find(|x| x.as_tag().is_some_and(|x| x.name().eq("a")));
 
     assert_eq!(element.map(|x| x.inner_text(parser)), Some("nested".into()));
 }
@@ -639,23 +639,19 @@ mod query_selector {
         let node_option = dom
             .query_selector(r#"meta[property="og:title"]"#)
             .and_then(|mut iter| iter.next());
-        let value = if let Some(node) = node_option {
-            Some(
-                node.get(parser)
-                    .unwrap()
-                    .as_tag()
-                    .unwrap()
-                    .attributes()
-                    .get("content")
-                    .flatten()
-                    .unwrap()
-                    .try_as_utf8_str()
-                    .unwrap()
-                    .to_string(),
-            )
-        } else {
-            None
-        };
+        let value = node_option.map(|node| {
+            node.get(parser)
+                .unwrap()
+                .as_tag()
+                .unwrap()
+                .attributes()
+                .get("content")
+                .flatten()
+                .unwrap()
+                .try_as_utf8_str()
+                .unwrap()
+                .to_string()
+        });
 
         assert_eq!(value, Some("hello".to_string()));
     }

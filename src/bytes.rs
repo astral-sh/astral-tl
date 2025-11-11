@@ -148,6 +148,12 @@ impl<'a> Debug for Bytes<'a> {
     }
 }
 
+impl<'a> Default for Bytes<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> Bytes<'a> {
     /// Creates an empty `Bytes`
     #[inline]

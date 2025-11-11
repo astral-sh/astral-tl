@@ -10,15 +10,9 @@ mod flags {
 /// The default options (`ParserOptions::default()`) are optimized for raw parsing.
 /// If you need to do HTML tag lookups by ID or class names, you can enable tracking.
 /// This will cache HTML nodes as they appear in the source code on the fly.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct ParserOptions {
     flags: u8,
-}
-
-impl Default for ParserOptions {
-    fn default() -> Self {
-        Self { flags: 0 }
-    }
 }
 
 impl ParserOptions {
@@ -32,10 +26,7 @@ impl ParserOptions {
         if flags > flags::HIGHEST * 2 - 1 {
             None
         } else {
-            Some(Self {
-                flags,
-                ..Default::default()
-            })
+            Some(Self { flags })
         }
     }
 

@@ -37,19 +37,19 @@ impl<'a> Selector<'a> {
     /// Checks if the given node matches this selector
     pub fn matches<'b>(&self, node: &Node<'b>) -> bool {
         match self {
-            Self::Tag(tag) => node.as_tag().map_or(false, |t| t._name.as_bytes().eq(*tag)),
+            Self::Tag(tag) => node.as_tag().is_some_and(|t| t._name.as_bytes().eq(*tag)),
             Self::Id(id) => node
                 .as_tag()
-                .map_or(false, |t| t._attributes.id == Some((*id).into())),
+                .is_some_and(|t| t._attributes.id == Some((*id).into())),
             Self::Class(class) => node
                 .as_tag()
-                .map_or(false, |t| t._attributes.is_class_member(*class)),
+                .is_some_and(|t| t._attributes.is_class_member(*class)),
             Self::And(a, b) => a.matches(node) && b.matches(node),
             Self::Or(a, b) => a.matches(node) || b.matches(node),
             Self::All => true,
             Self::Attribute(attribute) => node
                 .as_tag()
-                .map_or(false, |t| t._attributes.get(*attribute).is_some()),
+                .is_some_and(|t| t._attributes.get(*attribute).is_some()),
             Self::AttributeValue(attribute, value) => {
                 check_attribute(node, attribute, value, |attr, value| attr == value)
             }
@@ -78,12 +78,10 @@ fn check_attribute<F>(node: &Node, attribute: &[u8], value: &[u8], callback: F) 
 where
     F: Fn(&str, &str) -> bool,
 {
-    node.as_tag().map_or(false, |t| {
+    node.as_tag().is_some_and(|t| {
         t._attributes
             .get(attribute)
             .flatten()
-            .map_or(false, |attr| {
-                callback(&attr.as_utf8_str(), &String::from_utf8_lossy(value))
-            })
+            .is_some_and(|attr| callback(&attr.as_utf8_str(), &String::from_utf8_lossy(value)))
     })
 }
