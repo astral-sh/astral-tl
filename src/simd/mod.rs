@@ -1,58 +1,26 @@
 use crate::util;
 
-/// Fallback functions, used for the last chunk not divisible by the chunk sice
-pub mod fallback;
-/// nightly-only functions using portable_simd
-#[cfg(feature = "simd")]
-pub mod nightly;
-/// Stable, "fallback" functions that this library uses as a fallback until portable_simd becomes stable
-#[cfg(not(feature = "simd"))]
-pub mod stable;
-
-macro_rules! decide {
-    ($nightly:expr, $stable:expr) => {{
-        #[cfg(feature = "simd")]
-        {
-            $nightly
-        }
-        #[cfg(not(feature = "simd"))]
-        {
-            $stable
-        }
-    }};
-}
-
 /// Checks if the given byte is a "closing" byte (/ or >)
 #[inline]
 pub fn is_closing(needle: u8) -> bool {
-    decide!(nightly::is_closing(needle), stable::is_closing(needle))
+    (needle == b'/') | (needle == b'>')
 }
 
 /// Searches for the first non-identifier in `haystack`
-#[inline]
 pub fn search_non_ident(haystack: &[u8]) -> Option<usize> {
-    decide!(
-        nightly::search_non_ident(haystack),
-        fallback::search_non_ident(haystack)
-    )
+    haystack.iter().position(|&c| !util::is_ident(c))
 }
 
-/// Searches for the first occurrence in `haystack`
+/// Searches for the first occurrence of any of 3 bytes in `haystack`
 #[inline]
 pub fn find3(haystack: &[u8], needle: [u8; 3]) -> Option<usize> {
-    decide!(
-        nightly::find3(haystack, needle),
-        stable::find_multi(haystack, needle)
-    )
+    memchr::memchr3(needle[0], needle[1], needle[2], haystack)
 }
 
 /// Searches for the first occurence of `needle` in `haystack`
 #[inline]
 pub fn find(haystack: &[u8], needle: u8) -> Option<usize> {
-    decide!(
-        nightly::find(haystack, needle),
-        stable::find(haystack, needle)
-    )
+    memchr::memchr(needle, haystack)
 }
 
 /// Checks if the ASCII characters in `haystack` match `needle` (case insensitive)

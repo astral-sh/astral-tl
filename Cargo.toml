@@ -13,14 +13,13 @@ keywords = ["html", "parser"]
 categories = ["parser-implementations", "parsing"]
 exclude = [".github/*"]
 
-[features]
-simd = []
-
 # for fuzzing and benchmarking internals, we need to make them public so that they can be accessed from outside testing crates
 # users of the library should never use these directly
+[features]
 __INTERNALS_DO_NOT_USE = []
 
 [dependencies]
+memchr = "2.7"
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }
