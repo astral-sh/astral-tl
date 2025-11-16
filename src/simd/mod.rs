@@ -1,5 +1,15 @@
 use crate::util;
 
+/// Fallback functions, used for search_non_ident on unsupported architectures
+pub mod fallback;
+
+// Architecture-specific SIMD implementations
+#[cfg(target_arch = "x86_64")]
+mod x86_64;
+
+#[cfg(target_arch = "aarch64")]
+mod aarch64;
+
 /// Checks if the given byte is a "closing" byte (/ or >)
 #[inline]
 pub fn is_closing(needle: u8) -> bool {
@@ -7,8 +17,25 @@ pub fn is_closing(needle: u8) -> bool {
 }
 
 /// Searches for the first non-identifier in `haystack`
+#[inline]
 pub fn search_non_ident(haystack: &[u8]) -> Option<usize> {
-    haystack.iter().position(|&c| !util::is_ident(c))
+    #[cfg(target_arch = "x86_64")]
+    {
+        // SAFETY: We check for SSE2 availability at runtime on x86_64
+        // SSE2 is available on all x86_64 CPUs by definition
+        unsafe { x86_64::search_non_ident_sse2(haystack) }
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    {
+        // SAFETY: NEON is available on all aarch64 CPUs by definition
+        unsafe { aarch64::search_non_ident_neon(haystack) }
+    }
+
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    {
+        fallback::search_non_ident(haystack)
+    }
 }
 
 /// Searches for the first occurrence of any of 3 bytes in `haystack`
