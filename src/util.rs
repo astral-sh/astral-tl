@@ -1,5 +1,5 @@
-static IDENT_CHARS: [u32; 8] = {
-    let mut chars = [0u32; 8];
+static IDENT_CHARS: [bool; 256] = {
+    let mut chars = [false; 256];
     let mut i = 0;
     while i < 256 {
         let c = i as u8;
@@ -12,7 +12,7 @@ static IDENT_CHARS: [u32; 8] = {
             || c == b'+'
             || c == b'/'
         {
-            chars[i / 32] |= 1 << (i % 32);
+            chars[i] = true;
         }
         i += 1;
     }
@@ -20,8 +20,7 @@ static IDENT_CHARS: [u32; 8] = {
 };
 
 pub fn is_ident(c: u8) -> bool {
-    let idx = c as usize;
-    (IDENT_CHARS[idx / 32] & (1 << (idx % 32))) != 0
+    IDENT_CHARS[c as usize]
 }
 
 #[inline(always)]
