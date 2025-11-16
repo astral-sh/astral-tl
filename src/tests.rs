@@ -354,6 +354,118 @@ mod simd {
         assert_eq!(crate::simd::search_non_ident(b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_"), None);
         assert_eq!(crate::simd::search_non_ident(b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_<"), Some(64));
         assert_eq!(crate::simd::search_non_ident(b"0123456789ab<defghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_<"), Some(12));
+
+        // Test empty and very short strings (fallback path).
+        assert_eq!(crate::simd::search_non_ident(b""), None);
+        assert_eq!(crate::simd::search_non_ident(b"a"), None);
+        assert_eq!(crate::simd::search_non_ident(b"ab"), None);
+        assert_eq!(crate::simd::search_non_ident(b"abc"), None);
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmno"), None); // 15 bytes (just under SIMD threshold)
+        assert_eq!(crate::simd::search_non_ident(b"<"), Some(0));
+        assert_eq!(crate::simd::search_non_ident(b"a<"), Some(1));
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmn<"), Some(14)); // 15 bytes
+
+        // Test exactly 16 bytes (single SIMD iteration).
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnop"), None); // All ident
+        assert_eq!(crate::simd::search_non_ident(b"<bcdefghijklmnop"), Some(0)); // Non-ident at position 0
+        assert_eq!(crate::simd::search_non_ident(b"a<cdefghijklmnop"), Some(1)); // Non-ident at position 1
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmno<"), Some(15)); // Non-ident at position 15 (last byte of chunk)
+
+        // Test 17-31 bytes (one SIMD iteration + fallback).
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnopq"), None);
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnop<"), Some(16)); // Non-ident at position 16 (first byte of fallback)
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnopq<"), Some(17));
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnopqrstuvwxyz12345"), None); // 31 bytes
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnopqrstuvwxyz1234<"), Some(30));
+
+        // Test exactly 32 bytes (two SIMD iterations).
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnopqrstuvwxyz123456"), None); // All ident
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnopqrstuvwxyz12345<"), Some(31));
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnop<rstuvwxyz123456"), Some(16)); // Non-ident at start of 2nd chunk
+
+        // Test 48 bytes (three SIMD iterations).
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKL"), None);
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK<"), Some(47));
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnopqrstuvwxyz01234<6789ABCDEFGHIJKL"), Some(31)); // Non-ident in 2nd chunk
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG<IJK<"), Some(43)); // First non-ident in 3rd chunk
+
+        // Test all valid identifier characters.
+        assert_eq!(crate::simd::search_non_ident(b"0123456789"), None); // All digits
+        assert_eq!(crate::simd::search_non_ident(b"abcdefghijklmnopqrstuvwxyz"), None); // All lowercase
+        assert_eq!(crate::simd::search_non_ident(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"), None); // All uppercase
+        assert_eq!(crate::simd::search_non_ident(b"_"), None); // Underscore
+        assert_eq!(crate::simd::search_non_ident(b"-"), None); // Hyphen
+        assert_eq!(crate::simd::search_non_ident(b"azAZ09-_"), None); // Mix of all valid types
+
+        // Test actual non-identifier characters.
+        assert_eq!(crate::simd::search_non_ident(b"<"), Some(0)); // 0x3C
+        assert_eq!(crate::simd::search_non_ident(b">"), Some(0)); // 0x3E
+        assert_eq!(crate::simd::search_non_ident(b"@"), Some(0)); // 0x40 (just before 'A')
+        assert_eq!(crate::simd::search_non_ident(b"["), Some(0)); // 0x5B (just after 'Z')
+        assert_eq!(crate::simd::search_non_ident(b"`"), Some(0)); // 0x60 (just before 'a')
+        assert_eq!(crate::simd::search_non_ident(b"{"), Some(0)); // 0x7B (just after 'z')
+        assert_eq!(crate::simd::search_non_ident(b" "), Some(0)); // Space
+        assert_eq!(crate::simd::search_non_ident(b"="), Some(0)); // Equals
+
+        // Test valid identifier characters that might seem like they shouldn't be ('/', ':', and '+'
+        // are valid).
+        assert_eq!(crate::simd::search_non_ident(b"/"), None); // '/' IS an identifier
+        assert_eq!(crate::simd::search_non_ident(b":"), None); // ':' IS an identifier
+        assert_eq!(crate::simd::search_non_ident(b"+"), None); // '+' IS an identifier
+
+        // Test non-identifiers in the middle of valid identifiers.
+        assert_eq!(crate::simd::search_non_ident(b"abc<def"), Some(3));
+        assert_eq!(crate::simd::search_non_ident(b"abc>def"), Some(3));
+        assert_eq!(crate::simd::search_non_ident(b"abc@def"), Some(3));
+        assert_eq!(crate::simd::search_non_ident(b"abc[def"), Some(3));
+        assert_eq!(crate::simd::search_non_ident(b"abc`def"), Some(3));
+        assert_eq!(crate::simd::search_non_ident(b"abc{def"), Some(3));
+
+        // Test non-identifier at each position in first 16-byte chunk.
+        assert_eq!(crate::simd::search_non_ident(b"<234567890123456"), Some(0));
+        assert_eq!(crate::simd::search_non_ident(b"0<34567890123456"), Some(1));
+        assert_eq!(crate::simd::search_non_ident(b"01<4567890123456"), Some(2));
+        assert_eq!(crate::simd::search_non_ident(b"012<567890123456"), Some(3));
+        assert_eq!(crate::simd::search_non_ident(b"0123<67890123456"), Some(4));
+        assert_eq!(crate::simd::search_non_ident(b"01234<7890123456"), Some(5));
+        assert_eq!(crate::simd::search_non_ident(b"012345<890123456"), Some(6));
+        assert_eq!(crate::simd::search_non_ident(b"0123456<90123456"), Some(7));
+        assert_eq!(crate::simd::search_non_ident(b"01234567<0123456"), Some(8));
+        assert_eq!(crate::simd::search_non_ident(b"012345678<123456"), Some(9));
+        assert_eq!(crate::simd::search_non_ident(b"0123456789<23456"), Some(10));
+        assert_eq!(crate::simd::search_non_ident(b"0123456789a<3456"), Some(11));
+        assert_eq!(crate::simd::search_non_ident(b"0123456789ab<456"), Some(12));
+        assert_eq!(crate::simd::search_non_ident(b"0123456789abc<56"), Some(13));
+        assert_eq!(crate::simd::search_non_ident(b"0123456789abcd<6"), Some(14));
+        assert_eq!(crate::simd::search_non_ident(b"0123456789abcde<"), Some(15));
+
+        // Test special HTML/XML characters that are common non-identifiers.
+        assert_eq!(crate::simd::search_non_ident(b"tag<"), Some(3));
+        assert_eq!(crate::simd::search_non_ident(b"tag>"), Some(3));
+        assert_eq!(crate::simd::search_non_ident(b"tag "), Some(3)); // Space
+        assert_eq!(crate::simd::search_non_ident(b"tag="), Some(3)); // Equals
+        assert_eq!(crate::simd::search_non_ident(b"tag\""), Some(3)); // Quote
+        assert_eq!(crate::simd::search_non_ident(b"tag'"), Some(3)); // Single quote
+        assert_eq!(crate::simd::search_non_ident(b"tag/"), None);
+        assert_eq!(crate::simd::search_non_ident(b"tag:"), None);
+        assert_eq!(crate::simd::search_non_ident(b"tag+"), None);
+
+        // Test long strings with non-identifier at various positions.
+        let long_ident = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
+        assert_eq!(crate::simd::search_non_ident(long_ident), None);
+
+        // 64 bytes, all identifiers.
+        let mut buf = [b'a'; 64];
+        assert_eq!(crate::simd::search_non_ident(&buf), None);
+
+        // Non-identifier at position 63.
+        buf[63] = b'<';
+        assert_eq!(crate::simd::search_non_ident(&buf), Some(63));
+
+        // Non-identifier at position 32 (start of 3rd chunk).
+        buf[63] = b'a';
+        buf[32] = b'<';
+        assert_eq!(crate::simd::search_non_ident(&buf), Some(32));
     }
 }
 
