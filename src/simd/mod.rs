@@ -1,13 +1,11 @@
 use crate::util;
 
-/// Fallback functions, used for search_non_ident on unsupported architectures
-pub mod fallback;
+mod fallback;
 
-// Architecture-specific SIMD implementations
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
 mod x86_64;
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 mod aarch64;
 
 /// Checks if the given byte is a "closing" byte (/ or >)
@@ -19,20 +17,20 @@ pub fn is_closing(needle: u8) -> bool {
 /// Searches for the first non-identifier in `haystack`
 #[inline]
 pub fn search_non_ident(haystack: &[u8]) -> Option<usize> {
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
     {
-        // SAFETY: We check for SSE2 availability at runtime on x86_64
-        // SSE2 is available on all x86_64 CPUs by definition
         unsafe { x86_64::search_non_ident_sse2(haystack) }
     }
 
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
     {
-        // SAFETY: NEON is available on all aarch64 CPUs by definition
         unsafe { aarch64::search_non_ident_neon(haystack) }
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    #[cfg(not(any(
+        all(target_arch = "x86_64", target_feature = "sse2"),
+        all(target_arch = "aarch64", target_feature = "neon")
+    )))]
     {
         fallback::search_non_ident(haystack)
     }
