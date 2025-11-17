@@ -609,7 +609,6 @@ fn valueless_attribute_next_attribute() {
     let input = r#"<button disabled id="btn">click</button>"#;
 
     let dom = parse(input, ParserOptions::default()).unwrap();
-    println!("DOM: {:?}", dom);
     let element = dom.get_element_by_id("btn");
 
     assert!(element.is_some());

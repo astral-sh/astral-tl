@@ -74,6 +74,13 @@ impl<'a, T> Stream<'a, T> {
     }
 
     #[inline]
+    pub fn retreat(&mut self) {
+        if self.idx > 0 {
+            self.idx -= 1;
+        }
+    }
+
+    #[inline]
     pub fn advance_by(&mut self, step: usize) {
         self.idx += step;
     }
