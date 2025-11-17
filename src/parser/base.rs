@@ -154,6 +154,8 @@ impl<'a> Parser<'a> {
 
         let has_value = self.stream.expect_and_skip_cond(b'=');
         if !has_value {
+            // NOTE: here we stepback to previous position to allow parser to advance and try to parse next attribute
+            self.stream.idx -= 1;
             return Some((name, None));
         }
 
