@@ -1,6 +1,6 @@
 [package]
 name = "astral-tl"
-version = "0.7.9"
+version = "0.7.10"
 authors = ["y21"]
 edition = "2021"
 license = "MIT"
