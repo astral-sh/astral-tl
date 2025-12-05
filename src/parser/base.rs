@@ -120,6 +120,11 @@ impl<'a> Parser<'a> {
         // then we are probably at the end of the stream
         let end = simd::search_non_ident(bytes).unwrap_or_else(|| self.stream.len() - start);
 
+        // If we don't find any identifier characters, return `None`.
+        if end == 0 {
+            return None;
+        }
+
         self.stream.idx += end;
         Some(self.stream.slice(start, start + end))
     }
@@ -154,8 +159,6 @@ impl<'a> Parser<'a> {
 
         let has_value = self.stream.expect_and_skip_cond(b'=');
         if !has_value {
-            // Stepback to the previous position to allow the parser to advance.
-            self.stream.retreat();
             return Some((name, None));
         }
 
@@ -183,6 +186,7 @@ impl<'a> Parser<'a> {
             }
 
             if let Some((key, value)) = self.parse_attribute() {
+                let has_value = value.is_some();
                 let value: Option<Bytes<'a>> = value.map(Into::into);
 
                 match key {
@@ -190,9 +194,13 @@ impl<'a> Parser<'a> {
                     b"class" => attributes.class = value,
                     _ => attributes.raw.insert(key.into(), value),
                 };
-            }
 
-            if !simd::is_closing(self.stream.current_cpy()?) {
+                // Only advance past the delimiter if we read a value.
+                if has_value && !simd::is_closing(self.stream.current_cpy()?) {
+                    self.stream.advance();
+                }
+            } else {
+                // No valid attribute found; skip this character.
                 self.stream.advance();
             }
         }
