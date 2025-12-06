@@ -604,14 +604,22 @@ fn valueless_attribute() {
 }
 
 #[test]
-fn valueless_attribute_next_attribute() {
-    // https://github.com/y21/tl/issues/70
-    let input = r#"<button disabled id="btn">click</button>"#;
+fn non_ident_attr_chars() {
+    // Test that non-identifier characters in attribute position don't cause infinite loops.
+    // These are edge cases where invalid HTML has special chars where an attribute name should be.
+    let test_cases = [
+        r#"<button " >"#,
+        r#"<button "">"#,
+        r#"<div @ >"#,
+        r#"<span ! foo>"#,
+        r#"<p # >"#,
+        r#"<a = >"#,
+        r#"<div < >"#,
+    ];
 
-    let dom = parse(input, ParserOptions::default()).unwrap();
-    let element = dom.get_element_by_id("btn");
-
-    assert!(element.is_some());
+    for input in test_cases {
+        let _ = parse(input, ParserOptions::default());
+    }
 }
 
 #[test]
@@ -944,4 +952,55 @@ fn tag_raw_abrupt_stop() {
 
     let from_raw = first_tag.raw().try_as_utf8_str().unwrap();
     assert_eq!(from_raw, "<p>abcd</p");
+}
+
+#[test]
+fn valueless_attribute_next_attribute() {
+    // https://github.com/y21/tl/issues/70
+    let input = r#"<button disabled id="btn">click</button>"#;
+
+    let dom = parse(input, ParserOptions::default()).unwrap();
+    let element = dom.get_element_by_id("btn");
+
+    assert!(element.is_some());
+}
+
+#[test]
+fn valueless_attr_followed_by_valued() {
+    // https://github.com/y21/tl/issues/70
+    let input = r#"<input id="id" ct="I" readonly value="82.0">"#;
+    let dom = parse(input, ParserOptions::default()).unwrap();
+    let parser = dom.parser();
+
+    let input_tag = dom.children()[0].get(parser).unwrap().as_tag().unwrap();
+    let attrs = input_tag.attributes();
+
+    // Check that the 'value' attribute exists (not 'alue').
+    assert!(attrs.get("value").is_some(), "value attribute should exist");
+    assert_eq!(attrs.get("value").unwrap().unwrap().as_utf8_str(), "82.0");
+
+    // `readonly` should be a valueless attribute
+    assert!(
+        attrs.get("readonly").is_some(),
+        "readonly attribute should exist"
+    );
+    assert!(
+        attrs.get("readonly").unwrap().is_none(),
+        "readonly should be valueless"
+    );
+}
+
+#[test]
+fn double_space_before_closing_bracket() {
+    // Double space after quoted attribute value, before closing bracket.
+    // This pattern previously caused an infinite loop.
+    let input = r#"<a href="url" rel="internal"  >link</a>"#;
+    let dom = parse(input, ParserOptions::default()).unwrap();
+    let parser = dom.parser();
+
+    let a_tag = dom.children()[0].get(parser).unwrap().as_tag().unwrap();
+    let attrs = a_tag.attributes();
+
+    assert_eq!(attrs.get("href").unwrap().unwrap().as_utf8_str(), "url");
+    assert_eq!(attrs.get("rel").unwrap().unwrap().as_utf8_str(), "internal");
 }
