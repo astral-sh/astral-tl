@@ -991,58 +991,16 @@ fn valueless_attr_followed_by_valued() {
 }
 
 #[test]
-fn nexus_simple_api_html() {
-    // Real Nexus Simple API response that triggered infinite loop
-    // Key pattern: `rel="internal"  >` with double space after quoted value
-    let input = r#"<!DOCTYPE html>
-<html lang="en">
-<head><title>Links for pyt</title>
-  <meta name="api-version" value="2"/>
-</head>
-<body><h1>Links for pyt</h1>
-        <a href="../../packages/pyt/0.5.1/pyt-0.5.1.tar.gz#sha256=965befc8e306fc38283b52d7819656ab711ad42acaa94df37ec08b824262349b" rel="internal"  >pyt-0.5.1.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.5.2/pyt-0.5.2.tar.gz#sha256=0e1b007ef984974f709f7c77d6a0b669bea7b0f99b016547172b10cf5ae8c525" rel="internal"  >pyt-0.5.2.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.5.3/pyt-0.5.3.tar.gz#sha256=c80cb7846149700f2cc8f6856d2daafbf1bb1b4597d0f7bf0b39c00f6b429732" rel="internal"  >pyt-0.5.3.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.6.4/pyt-0.6.4.tar.gz#sha256=49f1b87cb90cb332dbeea89370a6056117be83e43a208208f6572ab12abe2abb" rel="internal"  >pyt-0.6.4.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.1/pyt-0.7.1.tar.gz#sha256=b07e5047a8adb2177f593f976f2e8045f9dee6076f600cedbf4a1f6331ec96c4" rel="internal"  >pyt-0.7.1.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.2/pyt-0.7.2.tar.gz#sha256=0c021ffbe3c7c0e7e405fd029a0f074d473be9354d3c25cf5a3d69694c978fd7" rel="internal"  >pyt-0.7.2.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.3/pyt-0.7.3.tar.gz#sha256=9b4f22bbd716a811da65a85d5ed7b0b01989851dda6473cca9840d05766265a1" rel="internal"  >pyt-0.7.3.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.4/pyt-0.7.4.tar.gz#sha256=c153205ead215b35b839f522f06593a9bb2016aebb1157f2e8cd53d6ae05d335" rel="internal"  >pyt-0.7.4.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.5/pyt-0.7.5.tar.gz#sha256=48b28f329941271a02360d40faaccb1fb52fd4a4997995e1da80b7ed7a355b78" rel="internal"  >pyt-0.7.5.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.6/pyt-0.7.6.tar.gz#sha256=50c919236b46cf024dd6a3683b0178be8b35bc08b48650c189c04f94334fe4a5" rel="internal"  >pyt-0.7.6.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.7/pyt-0.7.7.tar.gz#sha256=1a6a5f03095d0a43d233b086422261523fd14f039846dad42dfc59e769a3a1bc" rel="internal"  >pyt-0.7.7.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.9/pyt-0.7.9.tar.gz#sha256=cc3d7e98e87ece296fb7e8c793275b35dff1c693737324b39dd51d9f08d194ab" rel="internal"  >pyt-0.7.9.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.10/pyt-0.7.10.tar.gz#sha256=7a883a24fcd425238dfaa5047d4effc7a77912d08f33111eccee27c289166aa8" rel="internal"  >pyt-0.7.10.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.11/pyt-0.7.11.tar.gz#sha256=5c78dd369f23431326933f79be85c9dfea81ee8842ab05b7f9043fb4c3d5ebe5" rel="internal"  >pyt-0.7.11.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.12/pyt-0.7.12.tar.gz#sha256=ada0f9d591b745a81fa7e96fa932cae9e98f5c9f5ce4bd9ed85992c25bfe2e18" rel="internal"  >pyt-0.7.12.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.13/pyt-0.7.13.tar.gz#sha256=8a4d1561c149aba1ede93d698a4a96c679f86deccbda5ee3596c79a0efc88d32" rel="internal"  >pyt-0.7.13.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.14/pyt-0.7.14.tar.gz#sha256=2e79b03482a1f5d5cd7df57588fe5b3d7e5504bdb0b1e3615fc66d6b52e4266e" rel="internal"  >pyt-0.7.14.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.15/pyt-0.7.15.tar.gz#sha256=629fb8bc5b34e693d7cd2008498a0c2db243b81a5b5f5cd663f58a46fa6d3301" rel="internal"  >pyt-0.7.15.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.22/pyt-0.7.22.tar.gz#sha256=40e8ab9e88c286c71ebfc8b4dc31057b4537b74faeb36d49bb0ccf9bbbd7ef66" rel="internal"  >pyt-0.7.22.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.23/pyt-0.7.23.tar.gz#sha256=73c05ffff1d185e5bc98161e115f2c3200b254a91d8fd26de874809babb02bc4" rel="internal"  >pyt-0.7.23.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.24/pyt-0.7.24.tar.gz#sha256=da5880d6001cd6a3d9a1e3af0ad501f327de6b963a478b120f3c31637ded3f1c" rel="internal"  >pyt-0.7.24.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.25/pyt-0.7.25.tar.gz#sha256=39955144f0760845003e05ede5899f667eb5af6efe99876e449cda50ee0e68d7" rel="internal"  >pyt-0.7.25.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.26/pyt-0.7.26.tar.gz#sha256=ae96638d5499c315c927b84f13a63b6961852ba85279d513270f136b93229cba" rel="internal"  >pyt-0.7.26.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.27/pyt-0.7.27.tar.gz#sha256=971c6a9e35d7757cb711cd6cef5e4f0f2aacac569252e0afa9c3eea7fa3198bf" rel="internal"  >pyt-0.7.27.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.28/pyt-0.7.28.tar.gz#sha256=e2e673ff3875deb1cb307040efdc64be120f6369a18afc391e9d7436beea281c" rel="internal"  >pyt-0.7.28.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.29/pyt-0.7.29.tar.gz#sha256=0ac0181a2847380d8af0a739d65ab5cb14cc7f135fba4c3b2613a1c7defe18de" rel="internal"  >pyt-0.7.29.tar.gz</a><br/>
-        <a href="../../packages/pyt/0.7.31/pyt-0.7.31.tar.gz#sha256=592cbf3c35298e4c9da51fb18cef6b69ea61a64fe294efd96290b2451b5ae22a" rel="internal"  >pyt-0.7.31.tar.gz</a><br/>
-        <a href="../../packages/pyt/1.0.5/pyt-1.0.5.tar.gz#sha256=dfb3522e17a7f3788a324fe4064b434cb5a744fae3221947af219701d1c37f75" rel="internal"  >pyt-1.0.5.tar.gz</a><br/>
-        <a href="../../packages/pyt/1.3.0/pyt-1.3.0-py3-none-any.whl#sha256=3429e8cbcc066eba385d9b5df969d39491dd78a32d8ebd810b822eb91ca9c569" rel="internal" data-requires-python="&gt;=3.10" >pyt-1.3.0-py3-none-any.whl</a><br/>
-        <a href="../../packages/pyt/1.3.0/pyt-1.3.0.tar.gz#sha256=acb8782effb5e7b3ef4ef07c8bc86b79e8aaf52e36ee911e521cb3efff658ee2" rel="internal" data-requires-python="&gt;=3.10" >pyt-1.3.0.tar.gz</a><br/>
-        <a href="../../packages/pyt/1.4.0/pyt-1.4.0-py3-none-any.whl#sha256=67f2705a81c02039eb11f5fde898e56c2add39b7909b326db36b2fc04e547393" rel="internal" data-requires-python="&gt;=3.10" >pyt-1.4.0-py3-none-any.whl</a><br/>
-        <a href="../../packages/pyt/1.4.0/pyt-1.4.0.tar.gz#sha256=09a12322f7027953b1195ea657b2b82f3c4d0b38df622bdaa6c8ff29674be216" rel="internal" data-requires-python="&gt;=3.10" >pyt-1.4.0.tar.gz</a><br/>
-</body>
-</html>
-<script id="f5_cspm">(function(){var f5_cspm={f5_p:'<redacted>',setCharAt:function(str,index,chr){if(index>str.length-1)return str;return str.substr(0,index)+chr+str.substr(index+1);},get_byte:function(str,i){var s=(i/16)|0;i=(i&15);s=s*32;return((str.charCodeAt(i+16+s)-65)<<4)|(str.charCodeAt(i+s)-65);},set_byte:function(str,i,b){var s=(i/16)|0;i=(i&15);s=s*32;str=f5_cspm.setCharAt(str,(i+16+s),String.fromCharCode((b>>4)+65));str=f5_cspm.setCharAt(str,(i+s),String.fromCharCode((b&15)+65));return str;},set_latency:function(str,latency){latency=latency&0xffff;str=f5_cspm.set_byte(str,40,(latency>>8));str=f5_cspm.set_byte(str,41,(latency&0xff));str=f5_cspm.set_byte(str,35,2);return str;},wait_perf_data:function(){try{var wp=window.performance.timing;if(wp.loadEventEnd>0){var res=wp.loadEventEnd-wp.navigationStart;if(res<60001){var cookie_val=f5_cspm.set_latency(f5_cspm.f5_p,res);window.document.cookie='<redacted>='+encodeURIComponent(cookie_val)+';path=/;'+'';}
-return;}}
-catch(err){return;}
-setTimeout(f5_cspm.wait_perf_data,100);return;},go:function(){var chunk=window.document.cookie.split(/\s*;\s*/);for(var i=0;i<chunk.length;++i){var pair=chunk[i].split(/\s*=\s*/);if(pair[0]=='f5_cspm'&&pair[1]=='1234')
-{var d=new Date();d.setTime(d.getTime()-1000);window.document.cookie='f5_cspm=;expires='+d.toUTCString()+';path=/;'+';';setTimeout(f5_cspm.wait_perf_data,100);}}}}
-f5_cspm.go();}());</script>
-"#;
-
+fn double_space_before_closing_bracket() {
+    // Double space after quoted attribute value, before closing bracket.
+    // This pattern previously caused an infinite loop.
+    let input = r#"<a href="url" rel="internal"  >link</a>"#;
     let dom = parse(input, ParserOptions::default()).unwrap();
-    // Verify we can find elements
-    assert!(dom.children().len() > 0);
+    let parser = dom.parser();
+
+    let a_tag = dom.children()[0].get(parser).unwrap().as_tag().unwrap();
+    let attrs = a_tag.attributes();
+
+    assert_eq!(attrs.get("href").unwrap().unwrap().as_utf8_str(), "url");
+    assert_eq!(attrs.get("rel").unwrap().unwrap().as_utf8_str(), "internal");
 }
