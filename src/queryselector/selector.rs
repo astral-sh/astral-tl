@@ -1,4 +1,4 @@
-use crate::Node;
+use crate::{InnerNodeHandle, Node, NodeHandle, Parser};
 
 /// A single query selector node
 #[derive(Debug, Clone)]
@@ -34,7 +34,7 @@ pub enum Selector<'a> {
 }
 
 impl<'a> Selector<'a> {
-    /// Checks if the given node matches this selector
+    /// Checks if the given node matches this selector (no ancestry context required)
     pub fn matches<'b>(&self, node: &Node<'b>) -> bool {
         match self {
             Self::Tag(tag) => node.as_tag().is_some_and(|t| t._name.as_bytes().eq(*tag)),
@@ -69,7 +69,80 @@ impl<'a> Selector<'a> {
                     attr.split_whitespace().any(|x| x == value)
                 })
             }
+            Self::Descendant(..) | Self::Parent(..) => {
+                unreachable!("combinator selectors require matches_with_ancestors")
+            }
+        }
+    }
+
+    /// Returns true if this selector contains a `>` or descendant-space combinator
+    pub fn needs_ancestry(&self) -> bool {
+        match self {
+            Self::Descendant(..) | Self::Parent(..) => true,
+            Self::And(a, b) | Self::Or(a, b) => a.needs_ancestry() || b.needs_ancestry(),
             _ => false,
+        }
+    }
+
+    /// Checks if the given node matches this selector given the current ancestor stack.
+    ///
+    /// `ancestors` is a slice of `(subtree_end_inclusive, handle)` pairs ordered
+    /// from outermost to innermost ancestor, maintained by the iterator.
+    pub fn matches_with_ancestors<'b>(
+        &self,
+        node: &Node<'b>,
+        ancestors: &[(InnerNodeHandle, NodeHandle)],
+        parser: &Parser<'b>,
+    ) -> bool {
+        match self {
+            Self::Tag(..)
+            | Self::Id(..)
+            | Self::Class(..)
+            | Self::All
+            | Self::Attribute(..)
+            | Self::AttributeValue(..)
+            | Self::AttributeValueSubstring(..)
+            | Self::AttributeValueStartsWith(..)
+            | Self::AttributeValueEndsWith(..)
+            | Self::AttributeValueWhitespacedContains(..) => self.matches(node),
+
+            Self::And(a, b) => {
+                a.matches_with_ancestors(node, ancestors, parser)
+                    && b.matches_with_ancestors(node, ancestors, parser)
+            }
+            Self::Or(a, b) => {
+                a.matches_with_ancestors(node, ancestors, parser)
+                    || b.matches_with_ancestors(node, ancestors, parser)
+            }
+            Self::Parent(ancestor_sel, node_sel) => {
+                if !node_sel.matches_with_ancestors(node, ancestors, parser) {
+                    return false;
+                }
+                match ancestors.last() {
+                    None => false,
+                    Some(&(_, parent_handle)) => {
+                        let Some(parent_node) = parent_handle.get(parser) else {
+                            return false;
+                        };
+                        let parent_ancestors = &ancestors[..ancestors.len() - 1];
+                        ancestor_sel.matches_with_ancestors(parent_node, parent_ancestors, parser)
+                    }
+                }
+            }
+            Self::Descendant(ancestor_sel, node_sel) => {
+                if !node_sel.matches_with_ancestors(node, ancestors, parser) {
+                    return false;
+                }
+                for i in (0..ancestors.len()).rev() {
+                    let (_, anc_handle) = ancestors[i];
+                    if let Some(anc_node) = anc_handle.get(parser) {
+                        if ancestor_sel.matches_with_ancestors(anc_node, &ancestors[..i], parser) {
+                            return true;
+                        }
+                    }
+                }
+                false
+            }
         }
     }
 }

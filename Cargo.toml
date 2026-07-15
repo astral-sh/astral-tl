@@ -1,6 +1,6 @@
 [package]
 name = "astral-tl"
-version = "0.7.11"
+version = "0.7.12"
 authors = ["y21"]
 edition = "2021"
 license = "MIT"
@@ -23,6 +23,7 @@ memchr = "2.7"
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }
+tl_upstream = { package = "astral-tl", version = "0.7.11" }
 
 [[bench]]
 name = "tl"

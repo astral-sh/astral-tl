@@ -54,19 +54,157 @@ const PYPI_SIMPLE: &str = r#"<!DOCTYPE html>
 <!--SERIAL 31878540-->
 "#;
 
-pub fn criterion_benchmark(cr: &mut Criterion) {
-    cr.bench_function("tl", |b| {
-        b.iter(|| {
-            let _ = tl::parse(black_box(INPUT), tl::ParserOptions::default());
-        });
-    });
+// Nested document used for selector benchmarks. 3-4 levels of nesting with ~100 tags.
+// Selector results (astral-tl / upstream-tl):
+//   "div"              — correct matches / correct matches  (leaf-only selector, identical)
+//   "div > p"          — correct matches / 0 matches       (upstream: Parent hits `_ => false`)
+//   "div p"            — correct matches / 0 matches       (upstream: Descendant hits `_ => false`)
+//   "html > body > div"— correct matches / 0 matches       (upstream: left-assoc bug)
+const SELECTOR_HTML: &str = r#"<!doctype html>
+<html>
+<body>
+<div class="article">
+  <h1 class="title">Article One</h1>
+  <div class="content">
+    <p>First paragraph of article one.</p>
+    <p>Second paragraph of article one.</p>
+    <div class="aside">
+      <p>Aside paragraph inside article one content.</p>
+      <span>Inline element one.</span>
+    </div>
+    <p>Third paragraph of article one.</p>
+  </div>
+  <div class="footer">
+    <p>Article one footer text.</p>
+    <a href="/1">Read more</a>
+  </div>
+</div>
+<div class="article">
+  <h1 class="title">Article Two</h1>
+  <div class="content">
+    <p>First paragraph of article two.</p>
+    <p>Second paragraph of article two.</p>
+    <div class="aside">
+      <p>Aside paragraph inside article two content.</p>
+      <span>Inline element two.</span>
+    </div>
+    <p>Third paragraph of article two.</p>
+  </div>
+  <div class="footer">
+    <p>Article two footer text.</p>
+    <a href="/2">Read more</a>
+  </div>
+</div>
+<div class="article">
+  <h1 class="title">Article Three</h1>
+  <div class="content">
+    <p>First paragraph of article three.</p>
+    <p>Second paragraph of article three.</p>
+    <div class="aside">
+      <p>Aside paragraph inside article three content.</p>
+      <span>Inline element three.</span>
+    </div>
+    <p>Third paragraph of article three.</p>
+  </div>
+  <div class="footer">
+    <p>Article three footer text.</p>
+    <a href="/3">Read more</a>
+  </div>
+</div>
+<div class="sidebar">
+  <div class="widget">
+    <h2>Recent Posts</h2>
+    <ul>
+      <li><a href="/post/1">Post One</a></li>
+      <li><a href="/post/2">Post Two</a></li>
+      <li><a href="/post/3">Post Three</a></li>
+    </ul>
+  </div>
+  <div class="widget">
+    <h2>Categories</h2>
+    <ul>
+      <li><a href="/cat/a">Category A</a></li>
+      <li><a href="/cat/b">Category B</a></li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>"#;
 
-    cr.bench_function("pypi_simple", |b| {
+pub fn parse_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("parse/example_domain");
+    group.bench_function("astral-tl", |b| {
+        b.iter(|| tl::parse(black_box(INPUT), tl::ParserOptions::default()));
+    });
+    group.bench_function("upstream-tl", |b| {
+        b.iter(|| tl_upstream::parse(black_box(INPUT), tl_upstream::ParserOptions::default()));
+    });
+    group.finish();
+
+    let mut group = c.benchmark_group("parse/pypi_simple");
+    group.bench_function("astral-tl", |b| {
+        b.iter(|| tl::parse(black_box(PYPI_SIMPLE), tl::ParserOptions::default()));
+    });
+    group.bench_function("upstream-tl", |b| {
         b.iter(|| {
-            let _ = tl::parse(black_box(PYPI_SIMPLE), tl::ParserOptions::default());
+            tl_upstream::parse(black_box(PYPI_SIMPLE), tl_upstream::ParserOptions::default())
         });
     });
+    group.finish();
 }
 
-criterion_group!(benches, criterion_benchmark);
+pub fn selector_benchmarks(c: &mut Criterion) {
+    // Parse once outside the timing loop — selector benchmarks measure query cost only.
+    let dom = tl::parse(SELECTOR_HTML, tl::ParserOptions::default()).unwrap();
+    let dom_up =
+        tl_upstream::parse(SELECTOR_HTML, tl_upstream::ParserOptions::default()).unwrap();
+
+    // Simple leaf selector — both impls produce identical match counts.
+    let mut group = c.benchmark_group("selector/simple");
+    group.bench_function("astral-tl", |b| {
+        b.iter(|| black_box(dom.query_selector("div").unwrap().count()));
+    });
+    group.bench_function("upstream-tl", |b| {
+        b.iter(|| black_box(dom_up.query_selector("div").unwrap().count()));
+    });
+    group.finish();
+
+    // Child combinator `>`.
+    // astral-tl: returns correct matches (ancestor stack fix).
+    // upstream-tl: returns 0 matches — Selector::Parent hits the `_ => false` catch-all.
+    let mut group = c.benchmark_group("selector/child");
+    group.bench_function("astral-tl", |b| {
+        b.iter(|| black_box(dom.query_selector("div > p").unwrap().count()));
+    });
+    group.bench_function("upstream-tl", |b| {
+        b.iter(|| black_box(dom_up.query_selector("div > p").unwrap().count()));
+    });
+    group.finish();
+
+    // Descendant combinator (space).
+    // astral-tl: returns correct matches.
+    // upstream-tl: returns 0 matches — Selector::Descendant hits `_ => false`.
+    let mut group = c.benchmark_group("selector/descendant");
+    group.bench_function("astral-tl", |b| {
+        b.iter(|| black_box(dom.query_selector("div p").unwrap().count()));
+    });
+    group.bench_function("upstream-tl", |b| {
+        b.iter(|| black_box(dom_up.query_selector("div p").unwrap().count()));
+    });
+    group.finish();
+
+    // Multi-hop child chain — exercises left-associative parser fix.
+    // astral-tl: Parent(Parent(html, body), div) — correct.
+    // upstream-tl: Parent(html, Parent(body, div)) — wrong associativity + `_ => false` = 0.
+    let mut group = c.benchmark_group("selector/multi_hop");
+    group.bench_function("astral-tl", |b| {
+        b.iter(|| black_box(dom.query_selector("html > body > div").unwrap().count()));
+    });
+    group.bench_function("upstream-tl", |b| {
+        b.iter(|| black_box(dom_up.query_selector("html > body > div").unwrap().count()));
+    });
+    group.finish();
+}
+
+criterion_group!(benches, parse_benchmarks, selector_benchmarks);
 criterion_main!(benches);

@@ -40,40 +40,6 @@ impl<'a> Parser<'a> {
         self.stream.slice(start, self.stream.idx)
     }
 
-    fn parse_combinator(&mut self, left: Selector<'a>) -> Option<Selector<'a>> {
-        let has_whitespaces = self.skip_whitespaces();
-
-        let tok = if let Some(tok) = self.stream.current_cpy() {
-            tok
-        } else {
-            return Some(left);
-        };
-
-        let combinator = match tok {
-            b',' => {
-                self.stream.advance();
-                let right = self.selector()?;
-                Selector::Or(Box::new(left), Box::new(right))
-            }
-            b'>' => {
-                self.stream.advance();
-                let right = self.selector()?;
-                Selector::Parent(Box::new(left), Box::new(right))
-            }
-            _ if has_whitespaces => {
-                let right = self.selector()?;
-                Selector::Descendant(Box::new(left), Box::new(right))
-            }
-            _ if !has_whitespaces => {
-                let right = self.selector()?;
-                Selector::And(Box::new(left), Box::new(right))
-            }
-            _ => unreachable!(),
-        };
-
-        Some(combinator)
-    }
-
     fn parse_attribute(&mut self) -> Option<Selector<'a>> {
         let attribute = self.read_identifier();
         let ty = match self.stream.current_cpy() {
@@ -115,37 +81,79 @@ impl<'a> Parser<'a> {
         Some(ty)
     }
 
-    /// Parses a full selector
-    pub fn selector(&mut self) -> Option<Selector<'a>> {
-        self.skip_whitespaces();
+    /// Parses a single atomic selector token (tag, id, class, *, or attribute)
+    fn parse_atom(&mut self) -> Option<Selector<'a>> {
         let tok = self.stream.current_cpy()?;
 
-        let left = match tok {
+        match tok {
             b'#' => {
                 self.stream.advance();
                 let id = self.read_identifier();
-                Selector::Id(id)
+                Some(Selector::Id(id))
             }
             b'.' => {
                 self.stream.advance();
                 let class = self.read_identifier();
-                Selector::Class(class)
+                Some(Selector::Class(class))
             }
             b'*' => {
                 self.stream.advance();
-                Selector::All
+                Some(Selector::All)
             }
             b'[' => {
                 self.stream.advance();
-                self.parse_attribute()?
+                self.parse_attribute()
             }
             _ if util::is_ident(tok) => {
                 let tag = self.read_identifier();
-                Selector::Tag(tag)
+                Some(Selector::Tag(tag))
             }
-            _ => return None,
-        };
+            _ => None,
+        }
+    }
 
-        self.parse_combinator(left)
+    /// Parses one or more adjacent atoms (no whitespace) into an And chain
+    fn parse_compound(&mut self) -> Option<Selector<'a>> {
+        let mut result = self.parse_atom()?;
+
+        while let Some(next) = self.parse_atom() {
+            result = Selector::And(Box::new(result), Box::new(next));
+        }
+
+        Some(result)
+    }
+
+    /// Parses a full selector expression with left-associative combinators
+    pub fn selector(&mut self) -> Option<Selector<'a>> {
+        self.skip_whitespaces();
+        let mut left = self.parse_compound()?;
+
+        loop {
+            let has_whitespace = self.skip_whitespaces();
+
+            match self.stream.current_cpy() {
+                None => break,
+                Some(b',') => {
+                    self.stream.advance();
+                    // Or can be right-recursive; associativity is irrelevant for matching
+                    let right = self.selector()?;
+                    left = Selector::Or(Box::new(left), Box::new(right));
+                    break;
+                }
+                Some(b'>') => {
+                    self.stream.advance();
+                    self.skip_whitespaces();
+                    let right = self.parse_compound()?;
+                    left = Selector::Parent(Box::new(left), Box::new(right));
+                }
+                _ if has_whitespace => {
+                    let right = self.parse_compound()?;
+                    left = Selector::Descendant(Box::new(left), Box::new(right));
+                }
+                _ => break,
+            }
+        }
+
+        Some(left)
     }
 }
