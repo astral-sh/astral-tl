@@ -2,3 +2,4 @@
 Cargo.lock
 *.html
 *.js
+.omc/state/**
