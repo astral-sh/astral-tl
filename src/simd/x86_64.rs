@@ -8,9 +8,12 @@ use core::arch::x86_64::*;
 /// - 'A'-'Z' (uppercase letters)
 /// - '-' (hyphen)
 /// - '_' (underscore)
-/// - '/' (slash)
 /// - ':' (colon)
 /// - '+' (plus)
+///
+/// NOTE: '/' is intentionally NOT an identifier byte (kept in sync with `util.rs`): per the HTML
+/// tokenizer '/' is never part of a tag/attribute name; including it mis-tokenized no-space void
+/// tags (`<br/>` -> "br/") into never-closing phantom elements.
 #[target_feature(enable = "sse2")]
 pub unsafe fn search_non_ident_sse2(haystack: &[u8]) -> Option<usize> {
     // If the haystack is too small, short-circuit to the fallback implementation.
@@ -73,21 +76,17 @@ unsafe fn is_ident_chunk(chunk: __m128i) -> __m128i {
     // '_' (0x5F)
     let is_underscore = _mm_cmpeq_epi8(chunk, _mm_set1_epi8(0x5F));
 
-    // '/' (0x2F)
-    let is_slash = _mm_cmpeq_epi8(chunk, _mm_set1_epi8(0x2F));
-
     // ':' (0x3A)
     let is_colon = _mm_cmpeq_epi8(chunk, _mm_set1_epi8(0x3A));
 
     // '+' (0x2B)
     let is_plus = _mm_cmpeq_epi8(chunk, _mm_set1_epi8(0x2B));
 
-    // Combine all identifier character masks.
+    // Combine all identifier character masks. ('/' is intentionally excluded — see doc comment.)
     let is_alpha = _mm_or_si128(is_lowercase, is_uppercase);
     let is_alnum = _mm_or_si128(is_digit, is_alpha);
     let is_special1 = _mm_or_si128(is_hyphen, is_underscore);
-    let is_special2 = _mm_or_si128(is_slash, is_colon);
-    let is_special3 = _mm_or_si128(is_special2, is_plus);
-    let is_special = _mm_or_si128(is_special1, is_special3);
+    let is_special2 = _mm_or_si128(is_colon, is_plus);
+    let is_special = _mm_or_si128(is_special1, is_special2);
     _mm_or_si128(is_alnum, is_special)
 }

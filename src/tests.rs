@@ -147,6 +147,56 @@ fn ignore_void_closing_tags() {
 }
 
 #[test]
+fn no_space_self_closing_void_tag_does_not_phantom_nest() {
+    // Regression: '/' used to be an identifier byte, so a no-space void tag `<br/>` tokenized as a
+    // phantom element named "br/" that was pushed and never popped, re-parenting every following
+    // sibling as a descendant. #r1 must be a SIBLING of #r0, not nested inside it.
+    let input = r#"<div id="r0"><span><br/></span></div><div id="r1">x</div>"#;
+    let dom = parse(input, ParserOptions::default()).unwrap();
+    let nested = dom.query_selector("#r0 #r1").map(|it| it.count()).unwrap_or(0);
+    assert_eq!(nested, 0, "no-space `<br/>` phantom-nested the following sibling");
+    assert!(
+        dom.query_selector("#r1").and_then(|mut it| it.next()).is_some(),
+        "#r1 should still exist as a real element"
+    );
+}
+
+#[test]
+fn script_rawtext_content_is_not_parsed_as_markup() {
+    // Regression: astral-tl had no RAWTEXT state, so HTML fragments inside <script> string
+    // literals were parsed as real elements — polluting queries (e.g. Amazon's store-nav <a>
+    // links inside a <script> template leaking into `#nav-subnav a`). The <a id="pollute"> below
+    // lives inside <script> and MUST NOT be a queryable element; the real <a id="real"> must be.
+    let input = r#"<div id="nav"><script>var t = '<a id="pollute">x</a><br/>';</script></div><a id="real">y</a>"#;
+    let dom = parse(input, ParserOptions::default()).unwrap();
+    assert!(
+        dom.query_selector("#pollute").and_then(|mut it| it.next()).is_none(),
+        "an <a> inside a <script> string literal must not be a real element"
+    );
+    assert!(
+        dom.query_selector("#real").and_then(|mut it| it.next()).is_some(),
+        "the real <a> after </script> must still exist"
+    );
+    // The script must close so following elements are siblings, not descendants.
+    assert_eq!(
+        dom.query_selector("#nav #real").map(|it| it.count()).unwrap_or(0),
+        0,
+        "elements after </script> must not be nested under the script's container"
+    );
+}
+
+#[test]
+fn style_rawtext_angle_brackets_do_not_spawn_tags() {
+    // `<style>` body with `>` selectors must be consumed as text, not markup.
+    let input = r#"<style>.a > .b { color: red }</style><p id="p">hi</p>"#;
+    let dom = parse(input, ParserOptions::default()).unwrap();
+    assert!(
+        dom.query_selector("#p").and_then(|mut it| it.next()).is_some(),
+        "the <p> after </style> must exist as a real element"
+    );
+}
+
+#[test]
 pub fn children_mut() {
     let input = "<head><p>Replace me</p> World</head>";
 
@@ -407,9 +457,9 @@ mod simd {
         assert_eq!(crate::simd::search_non_ident(b" "), Some(0)); // Space
         assert_eq!(crate::simd::search_non_ident(b"="), Some(0)); // Equals
 
-        // Test valid identifier characters that might seem like they shouldn't be ('/', ':', and '+'
-        // are valid).
-        assert_eq!(crate::simd::search_non_ident(b"/"), None); // '/' IS an identifier
+        // ':' and '+' are valid identifier bytes; '/' is NOT (it ends a tag name and triggers the
+        // self-closing-start-tag state — see util.rs).
+        assert_eq!(crate::simd::search_non_ident(b"/"), Some(0)); // '/' is NOT an identifier
         assert_eq!(crate::simd::search_non_ident(b":"), None); // ':' IS an identifier
         assert_eq!(crate::simd::search_non_ident(b"+"), None); // '+' IS an identifier
 
@@ -446,7 +496,7 @@ mod simd {
         assert_eq!(crate::simd::search_non_ident(b"tag="), Some(3)); // Equals
         assert_eq!(crate::simd::search_non_ident(b"tag\""), Some(3)); // Quote
         assert_eq!(crate::simd::search_non_ident(b"tag'"), Some(3)); // Single quote
-        assert_eq!(crate::simd::search_non_ident(b"tag/"), None);
+        assert_eq!(crate::simd::search_non_ident(b"tag/"), Some(3)); // '/' ends the tag name
         assert_eq!(crate::simd::search_non_ident(b"tag:"), None);
         assert_eq!(crate::simd::search_non_ident(b"tag+"), None);
 

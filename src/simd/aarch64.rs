@@ -8,9 +8,12 @@ use std::arch::aarch64::*;
 /// - 'A'-'Z' (uppercase letters)
 /// - '-' (hyphen)
 /// - '_' (underscore)
-/// - '/' (slash)
 /// - ':' (colon)
 /// - '+' (plus)
+///
+/// NOTE: '/' is intentionally NOT an identifier byte (kept in sync with `util.rs`): per the HTML
+/// tokenizer '/' is never part of a tag/attribute name; including it mis-tokenized no-space void
+/// tags (`<br/>` -> "br/") into never-closing phantom elements.
 pub unsafe fn search_non_ident_neon(haystack: &[u8]) -> Option<usize> {
     // If the haystack is too small, short-circuit to the fallback implementation.
     let len = haystack.len();
@@ -59,19 +62,18 @@ unsafe fn is_ident_chunk(chunk: uint8x16_t) -> uint8x16_t {
     let digit_offset = vsubq_u8(chunk, vdupq_n_u8(b'0'));
     let is_digit = vcltq_u8(digit_offset, vdupq_n_u8(10));
 
-    // Check for special characters: '-' (0x2D), '_' (0x5F), '/' (0x2F), ':' (0x3A), '+' (0x2B)
+    // Check for special characters: '-' (0x2D), '_' (0x5F), ':' (0x3A), '+' (0x2B).
+    // ('/' is intentionally excluded — see doc comment.)
     let is_hyphen = vceqq_u8(chunk, vdupq_n_u8(b'-'));
     let is_underscore = vceqq_u8(chunk, vdupq_n_u8(b'_'));
-    let is_slash = vceqq_u8(chunk, vdupq_n_u8(b'/'));
     let is_colon = vceqq_u8(chunk, vdupq_n_u8(b':'));
     let is_plus = vceqq_u8(chunk, vdupq_n_u8(b'+'));
 
     // Combine all masks.
     let is_alnum = vorrq_u8(is_letter, is_digit);
     let is_special1 = vorrq_u8(is_hyphen, is_underscore);
-    let is_special2 = vorrq_u8(is_slash, is_colon);
-    let is_special3 = vorrq_u8(is_special2, is_plus);
-    let is_special = vorrq_u8(is_special1, is_special3);
+    let is_special2 = vorrq_u8(is_colon, is_plus);
+    let is_special = vorrq_u8(is_special1, is_special2);
     vorrq_u8(is_alnum, is_special)
 }
 

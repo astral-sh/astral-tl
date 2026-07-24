@@ -129,6 +129,52 @@ impl<'a> Parser<'a> {
         Some(self.stream.slice(start, start + end))
     }
 
+    /// Consume RAWTEXT/RCDATA content for `name` (script/style/textarea/title): scan for the
+    /// matching end tag `</name` (ASCII case-insensitive; name must be followed by `>`,
+    /// whitespace, `/`, or EOF) and register everything before it as ONE Raw child of the element
+    /// currently on top of the stack. Leaves the stream positioned at the `<` of the end tag so
+    /// `read_end` pops the element normally. Mirrors the HTML tokenizer's RAWTEXT/RCDATA states.
+    fn read_rawtext(&mut self, name: &'a [u8]) {
+        let start = self.stream.idx;
+        let end = {
+            let data = self.stream.data();
+            let len = data.len();
+            let mut i = start;
+            loop {
+                match simd::find(&data[i..], b'<') {
+                    None => break len,
+                    Some(rel) => {
+                        let lt = i + rel;
+                        let name_start = lt + 2;
+                        let name_end = name_start + name.len();
+                        if data.get(lt + 1) == Some(&b'/')
+                            && name_end <= len
+                            && data[name_start..name_end].eq_ignore_ascii_case(name)
+                            && matches!(
+                                data.get(name_end),
+                                None | Some(&b'>')
+                                    | Some(&b' ')
+                                    | Some(&b'\n')
+                                    | Some(&b'\r')
+                                    | Some(&b'\t')
+                                    | Some(&b'/')
+                            )
+                        {
+                            break lt;
+                        }
+                        i = lt + 1;
+                    }
+                }
+            }
+        };
+        if end > start {
+            let raw = self.stream.slice(start, end);
+            let handle = self.register_tag(Node::Raw(raw.into()));
+            self.add_to_parent(handle);
+        }
+        self.stream.idx = end;
+    }
+
     fn skip_comment_with_start(&mut self, start: usize) -> &'a [u8] {
         while !self.stream.is_eof() {
             let idx = self.stream.idx;
@@ -358,6 +404,17 @@ impl<'a> Parser<'a> {
                 // <p> should not be a subtag of <br>
                 if !is_self_closing && !constants::VOID_TAGS.contains(&name) {
                     self.stack.push(this);
+
+                    // RAWTEXT / RCDATA elements (script/style/textarea/title): their body is text,
+                    // not markup. Consume everything up to the matching `</name` as a single Raw
+                    // child so `<` inside inline JS/CSS/JSON does not spawn phantom tags. Mirrors the
+                    // HTML tokenizer's script-data/RAWTEXT states (what html5ever does).
+                    if constants::RAWTEXT_TAGS
+                        .iter()
+                        .any(|t| name.eq_ignore_ascii_case(t))
+                    {
+                        self.read_rawtext(name);
+                    }
                 }
             }
         };
