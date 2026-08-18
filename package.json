@@ -1,0 +1,7 @@
+{
+  "name": "astral-tl-dev",
+  "private": true,
+  "devDependencies": {
+    "prettier": "3.6.2"
+  }
+}
