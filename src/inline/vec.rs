@@ -32,14 +32,6 @@ impl<T, const N: usize> InlineVec<T, N> {
         self.0.is_heap_allocated()
     }
 
-    /// If `self` is inlined, this returns the underlying raw parts that make up this `InlineVec`.
-    ///
-    /// Only the first `.1` elements are initialized.
-    #[inline]
-    pub fn inline_parts_mut(&mut self) -> Option<(&mut [MaybeUninit<T>; N], usize)> {
-        self.0.inline_parts_mut()
-    }
-
     /// Copies `self` into a new `Vec<T>`
     #[inline]
     pub fn to_vec(&self) -> Vec<T>
@@ -147,14 +139,6 @@ impl<T, const N: usize> InlineVecInner<T, N> {
             Self::Inline { len, data } => unsafe {
                 std::slice::from_raw_parts(data.as_ptr() as *const T, *len)
             },
-        }
-    }
-
-    #[inline]
-    pub fn inline_parts_mut(&mut self) -> Option<(&mut [MaybeUninit<T>; N], usize)> {
-        match self {
-            Self::Heap(_) => None,
-            Self::Inline { len, data } => Some((data, *len)),
         }
     }
 
@@ -304,8 +288,8 @@ impl<'a, T, const N: usize> Iterator for InlineVecIter<'a, T, N> {
 
 impl<T, const N: usize> Drop for InlineVecInner<T, N> {
     fn drop(&mut self) {
-        if let Some((data, len)) = self.inline_parts_mut() {
-            for element in data.iter_mut().take(len) {
+        if let Self::Inline { len, data } = self {
+            for element in data.iter_mut().take(*len) {
                 unsafe { ptr::drop_in_place(element.as_mut_ptr()) };
             }
         }
