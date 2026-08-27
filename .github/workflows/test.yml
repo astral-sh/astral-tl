@@ -5,46 +5,34 @@ on:
 
 name: Test
 
+permissions: {}
+
 jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
+        with:
+          persist-credentials: false
 
       - name: Install
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-          components: miri, rustfmt, clippy
+        run: |
+          rustup toolchain install nightly --profile minimal --component miri,rustfmt,clippy --allow-downgrade
+          rustup override set nightly
 
       - name: Format
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --check
+        run: cargo fmt --check
 
       - name: Clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: cargo test
 
       - name: Miri
-        uses: actions-rs/cargo@v1
-        with:
-          command: miri
-          args: test
+        run: cargo miri test
 
       - name: Bench
-        uses: actions-rs/cargo@v1
-        with:
-          command: bench
+        run: cargo bench
