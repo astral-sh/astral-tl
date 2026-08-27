@@ -321,7 +321,7 @@ mod simd {
 
     #[test]
     fn string_search_3() {
-        const NEEDLE: [u8; 3] = [b'a', b'b', b'c'];
+        const NEEDLE: [u8; 3] = *b"abc";
 
         assert_eq!(crate::simd::find3(b"e", NEEDLE), None);
         assert_eq!(crate::simd::find3(b"a", NEEDLE), Some(0));

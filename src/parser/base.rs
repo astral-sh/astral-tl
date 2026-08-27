@@ -167,7 +167,7 @@ impl<'a> Parser<'a> {
         let value = if let Some(quote) = self.stream.expect_oneof_and_skip(b"\"'") {
             self.read_to(quote)
         } else {
-            self.read_to3([b' ', b'\n', b'>'])
+            self.read_to3(*b" \n>")
         };
 
         Some((name, Some(value)))

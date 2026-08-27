@@ -293,7 +293,7 @@ impl<'a> HTMLTag<'a> {
     pub fn outer_html<'p>(&'p self, parser: &'p Parser<'a>) -> String {
         let tag_name = self._name.as_utf8_str();
         let is_void_element = HTML_VOID_ELEMENTS.contains(&tag_name.as_ref());
-        let mut outer_html = format!("<{}", &tag_name);
+        let mut outer_html = format!("<{}", tag_name);
 
         #[inline]
         fn write_attribute(dest: &mut String, k: Cow<str>, v: Option<Cow<str>>) {
