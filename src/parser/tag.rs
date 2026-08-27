@@ -25,10 +25,10 @@ pub type RawChildren = InlineVec<NodeHandle, INLINED_SUBNODES>;
 pub struct Attributes<'a> {
     /// Raw attributes (maps attribute key to attribute value)
     pub(crate) raw: RawAttributesMap<'a>,
-    /// The ID of this HTML element, if present
-    pub(crate) id: Option<Bytes<'a>>,
-    /// A list of class names of this HTML element, if present
-    pub(crate) class: Option<Bytes<'a>>,
+    /// The ID attribute of this HTML element, if present
+    pub(crate) id: Option<Option<Bytes<'a>>>,
+    /// The class attribute of this HTML element, if present
+    pub(crate) class: Option<Option<Bytes<'a>>>,
 }
 
 impl<'a> Attributes<'a> {
@@ -39,6 +39,13 @@ impl<'a> Attributes<'a> {
             id: None,
             class: None,
         }
+    }
+
+    fn normalize_key<B>(key: B) -> Bytes<'a>
+    where
+        B: Into<Bytes<'a>>,
+    {
+        key.into().into_ascii_lowercase()
     }
 
     /// Counts the number of attributes
@@ -71,11 +78,11 @@ impl<'a> Attributes<'a> {
     where
         B: Into<Bytes<'a>>,
     {
-        let key: Bytes = key.into();
+        let key = Self::normalize_key(key);
 
         match key.as_bytes() {
-            b"id" => self.id.as_ref().map(Some),
-            b"class" => self.class.as_ref().map(Some),
+            b"id" => self.id.as_ref().map(Option::as_ref),
+            b"class" => self.class.as_ref().map(Option::as_ref),
             _ => self.raw.get(&key).map(|x| x.as_ref()),
         }
     }
@@ -106,11 +113,11 @@ impl<'a> Attributes<'a> {
     where
         B: Into<Bytes<'a>>,
     {
-        let key: Bytes = key.into();
+        let key = Self::normalize_key(key);
 
         match key.as_bytes() {
-            b"id" => self.id.take().map(Some),
-            b"class" => self.class.take().map(Some),
+            b"id" => self.id.take(),
+            b"class" => self.class.take(),
             _ => self.raw.remove(&key),
         }
     }
@@ -130,11 +137,11 @@ impl<'a> Attributes<'a> {
     where
         B: Into<Bytes<'a>>,
     {
-        let key: Bytes = key.into();
+        let key = Self::normalize_key(key);
 
         match key.as_bytes() {
-            b"id" => self.id.take(),
-            b"class" => self.class.take(),
+            b"id" => self.id.as_mut().and_then(Option::take),
+            b"class" => self.class.as_mut().and_then(Option::take),
             _ => self.raw.get_mut(&key).and_then(mem::take),
         }
     }
@@ -144,11 +151,11 @@ impl<'a> Attributes<'a> {
     where
         B: Into<Bytes<'a>>,
     {
-        let key: Bytes = key.into();
+        let key = Self::normalize_key(key);
 
         match key.as_bytes() {
-            b"id" => self.id.as_mut().map(Some),
-            b"class" => self.class.as_mut().map(Some),
+            b"id" => self.id.as_mut().map(Option::as_mut),
+            b"class" => self.class.as_mut().map(Option::as_mut),
             _ => self.raw.get_mut(&key).map(Option::as_mut),
         }
     }
@@ -159,12 +166,12 @@ impl<'a> Attributes<'a> {
         K: Into<Bytes<'a>>,
         V: Into<Bytes<'a>>,
     {
-        let key: Bytes = key.into();
+        let key = Self::normalize_key(key);
         let value = value.map(Into::into);
 
         match key.as_bytes() {
-            b"id" => self.id = value,
-            b"class" => self.class = value,
+            b"id" => self.id = Some(value),
+            b"class" => self.class = Some(value),
             _ => self.raw.insert(key, value),
         };
     }
@@ -182,11 +189,17 @@ impl<'a> Attributes<'a> {
             .chain([
                 (
                     self.id.is_some().then_some(Cow::Borrowed("id")),
-                    self.id.as_ref().map(|x| x.as_utf8_str()),
+                    self.id
+                        .as_ref()
+                        .and_then(Option::as_ref)
+                        .map(|x| x.as_utf8_str()),
                 ),
                 (
                     self.class.is_some().then_some(Cow::Borrowed("class")),
-                    self.class.as_ref().map(|x| x.as_utf8_str()),
+                    self.class
+                        .as_ref()
+                        .and_then(Option::as_ref)
+                        .map(|x| x.as_utf8_str()),
                 ),
             ])
             .flat_map(|(k, v)| k.map(|k| (k, v)))
@@ -194,18 +207,19 @@ impl<'a> Attributes<'a> {
 
     /// Returns the `id` attribute of this HTML tag, if present
     pub fn id(&self) -> Option<&Bytes<'a>> {
-        self.id.as_ref()
+        self.id.as_ref().and_then(Option::as_ref)
     }
 
     /// Returns the `class` attribute of this HTML tag, if present
     pub fn class(&self) -> Option<&Bytes<'a>> {
-        self.class.as_ref()
+        self.class.as_ref().and_then(Option::as_ref)
     }
 
     /// Returns an iterator over all of the class members
     pub fn class_iter(&self) -> Option<impl Iterator<Item = &'_ str> + '_> {
         self.class
             .as_ref()
+            .and_then(Option::as_ref)
             .and_then(Bytes::try_as_utf8_str)
             .map(str::split_ascii_whitespace)
     }

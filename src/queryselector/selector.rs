@@ -40,7 +40,7 @@ impl<'a> Selector<'a> {
             Self::Tag(tag) => node.as_tag().is_some_and(|t| t._name.as_bytes().eq(*tag)),
             Self::Id(id) => node
                 .as_tag()
-                .is_some_and(|t| t._attributes.id == Some((*id).into())),
+                .is_some_and(|t| t._attributes.id().is_some_and(|value| value == *id)),
             Self::Class(class) => node
                 .as_tag()
                 .is_some_and(|t| t._attributes.is_class_member(*class)),

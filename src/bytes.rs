@@ -186,6 +186,18 @@ impl<'a> Bytes<'a> {
         }
     }
 
+    pub(crate) fn into_ascii_lowercase(mut self) -> Self {
+        if self.as_bytes().iter().any(u8::is_ascii_uppercase) {
+            let normalized = self.as_bytes().to_ascii_lowercase();
+            drop(
+                self.set(normalized)
+                    .expect("ASCII lowercasing cannot increase the byte length"),
+            );
+        }
+
+        self
+    }
+
     /// Returns the raw data referenced by this struct
     ///
     /// The lifetime of the returned data is tied to 'a, unlike `Bytes::as_bytes`

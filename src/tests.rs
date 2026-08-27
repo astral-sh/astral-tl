@@ -8,6 +8,10 @@ fn force_as_tag<'a, 'b>(actual: &'a Node<'b>) -> &'a HTMLTag<'b> {
     }
 }
 
+fn first_attributes<'a, 'b>(dom: &'a crate::VDom<'b>) -> &'a Attributes<'b> {
+    force_as_tag(dom.children()[0].get(dom.parser()).unwrap()).attributes()
+}
+
 #[test]
 fn outer_html() {
     let dom = parse(
@@ -1003,4 +1007,72 @@ fn double_space_before_closing_bracket() {
 
     assert_eq!(attrs.get("href").unwrap().unwrap().as_utf8_str(), "url");
     assert_eq!(attrs.get("rel").unwrap().unwrap().as_utf8_str(), "internal");
+}
+
+#[test]
+fn duplicate_attributes_keep_first_value() {
+    let check = |input, expected, len, is_heap| {
+        let dom = parse(input, ParserOptions::default()).unwrap();
+        let attributes = first_attributes(&dom);
+
+        assert_eq!(attributes.len(), len);
+        assert_eq!(
+            attributes.get("HREF").flatten().unwrap().as_utf8_str(),
+            expected
+        );
+        assert_eq!(attributes.unstable_raw().is_heap_allocated(), is_heap);
+        assert_eq!(dom.query_selector("[HREF]").unwrap().count(), 1);
+    };
+
+    check(
+        r#"<a href="javascript:alert(1)" href="https://safe" title=x></a>"#,
+        "javascript:alert(1)",
+        2,
+        false,
+    );
+    check(
+        r#"<a HREF=first x=1 href=second y=2></a>"#,
+        "first",
+        3,
+        true,
+    );
+    check(
+        r#"<a href=first x=1 y=2 HREF=second></a>"#,
+        "first",
+        3,
+        true,
+    );
+}
+
+#[test]
+fn duplicate_id_and_class_attributes_keep_first_value() {
+    let dom = parse(
+        "<div ID=first id=second CLASS=first class=second></div>",
+        ParserOptions::default().track_ids().track_classes(),
+    )
+    .unwrap();
+    let attributes = first_attributes(&dom);
+
+    assert_eq!(attributes.id().unwrap().as_utf8_str(), "first");
+    assert_eq!(attributes.class().unwrap().as_utf8_str(), "first");
+    assert!(dom.get_element_by_id("first").is_some());
+    assert!(dom.get_element_by_id("second").is_none());
+    assert_eq!(dom.get_elements_by_class_name("first").count(), 1);
+    assert_eq!(dom.get_elements_by_class_name("second").count(), 0);
+}
+
+#[test]
+fn valueless_duplicate_attributes_keep_first_value() {
+    let dom = parse(
+        "<div DISABLED disabled=second ID id=second CLASS class=second></div>",
+        ParserOptions::default(),
+    )
+    .unwrap();
+    let attributes = first_attributes(&dom);
+
+    assert_eq!(attributes.len(), 3);
+    for key in ["disabled", "id", "CLASS"] {
+        assert_eq!(attributes.get(key), Some(None));
+    }
+    assert_eq!(attributes.iter().count(), 3);
 }
