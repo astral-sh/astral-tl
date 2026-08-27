@@ -59,7 +59,10 @@ where
         self.0.is_heap_allocated()
     }
 
-    /// Inserts a new element into the map
+    /// Inserts a new element into the map.
+    ///
+    /// If an equal key is already present, the stored key is retained and its value is replaced.
+    /// The map's length does not change.
     #[inline]
     pub fn insert(&mut self, key: K, value: V) {
         self.0.insert(key, value)
@@ -259,23 +262,32 @@ impl<K: Eq + Hash, V, const N: usize> InlineHashMapInner<K, V, N> {
             }
         };
 
+        for element in array.iter_mut().take(*len) {
+            // SAFETY: The first `len` elements of the inline array are initialized.
+            let (key, value) = unsafe { element.assume_init_mut() };
+            if (*key).eq(&k) {
+                let old_value = std::mem::replace(value, v);
+                drop(old_value);
+                return;
+            }
+        }
+
         if *len >= N {
-            let mut map = HashMap::with_capacity(*len);
+            let mut map = HashMap::with_capacity(*len + 1);
 
-            // move old elements to heap
-            for element in array.iter_mut().take(*len) {
-                let element = std::mem::replace(element, MaybeUninit::uninit());
-                let (key, value) = unsafe { element.assume_init() };
+            // Move old elements to the heap from the end of the initialized prefix. Decrementing
+            // the length first keeps the inline representation valid if hashing or equality panics.
+            while *len != 0 {
+                *len -= 1;
 
+                // SAFETY: The element at the decremented length was initialized, and lowering the
+                // length transfers responsibility for dropping it to the local map.
+                let (key, value) = unsafe { array[*len].assume_init_read() };
                 map.insert(key, value);
             }
 
-            // insert new element
             map.insert(k, v);
-            let new_heap = Self::Heap(map);
-
-            // do not call the destructor!
-            unsafe { ptr::write(self, new_heap) };
+            *self = Self::Heap(map);
         } else {
             array[*len].write((k, v));
             *len += 1;
@@ -351,6 +363,27 @@ impl<'a, K, V> Iterator for InlineHashMapIterator<'a, K, V> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
+    use std::hash::{Hash, Hasher};
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+    use std::rc::Rc;
+
+    struct PanicHash(usize, Rc<Cell<Option<usize>>>);
+
+    impl PartialEq for PanicHash {
+        fn eq(&self, other: &Self) -> bool {
+            self.0 == other.0
+        }
+    }
+
+    impl Eq for PanicHash {}
+
+    impl Hash for PanicHash {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            assert_ne!(self.1.get(), Some(self.0));
+            self.0.hash(state);
+        }
+    }
 
     #[test]
     fn inlinehashmap_iter() {
@@ -370,6 +403,28 @@ mod tests {
         assert_eq!(iter.next(), Some((&"bar".into(), &6usize)));
         assert_eq!(iter.next(), Some((&"baz".into(), &7usize)));
         assert_eq!(iter.next(), Some((&"qux".into(), &9usize)));
+    }
+
+    #[test]
+    fn inlinehashmap_growth_hash_panic_is_unwind_safe() {
+        let panic_on = Rc::new(Cell::new(None));
+        let key = |value| PanicHash(value, Rc::clone(&panic_on));
+        let mut map = InlineHashMap::<PanicHash, usize, 3>::new();
+        for value in 1..=3 {
+            map.insert(key(value), value);
+        }
+
+        panic_on.set(Some(2));
+        assert!(catch_unwind(AssertUnwindSafe(|| {
+            map.insert(key(4), 4);
+        }))
+        .is_err());
+        assert!(!map.is_heap_allocated());
+        assert!(map.iter().map(|(key, _)| key.0).eq([1]));
+
+        panic_on.set(None);
+        map.insert(key(5), 5);
+        assert_eq!(map.len(), 2);
     }
 
     #[test]
@@ -527,18 +582,24 @@ mod tests {
         assert!(!x.is_heap_allocated());
 
         x.insert("foo", 1337);
+        x.insert("foo", 1);
         assert_eq!(x.len(), 1);
-        assert_eq!(x.get(&"foo"), Some(&1337));
+        assert_eq!(x.get(&"foo"), Some(&1));
         assert!(!x.is_heap_allocated());
 
         x.insert("foo2", 2);
         x.insert("foo3", 3);
         x.insert("foo4", 4);
 
+        x.insert("foo", 2);
         assert_eq!(x.len(), 4);
+        assert_eq!(x.get(&"foo"), Some(&2));
+        assert!(!x.is_heap_allocated());
 
         x.insert("foo5", 5);
+        x.insert("foo", 3);
         assert_eq!(x.len(), 5);
+        assert_eq!(x.get(&"foo"), Some(&3));
         assert!(x.is_heap_allocated());
 
         x.insert("foo6", 6);

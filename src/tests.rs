@@ -887,8 +887,13 @@ fn self_closing_no_child() {
 
 #[test]
 fn insert_attribute_owned() {
-    // https://github.com/y21/tl/issues/27
     let mut attr = Attributes::new();
+    attr.insert("DATA-TEST", Some("first"));
+    attr.insert("data-test", Some("second"));
+    assert_eq!(attr.len(), 1);
+    assert_eq!(attr.get("DATA-TEST"), Some(Some(&"second".into())));
+
+    // https://github.com/y21/tl/issues/27
     let style = "some style".to_string();
     attr.insert("style", Some(Bytes::try_from(style).unwrap()));
     assert_eq!(attr.get("style"), Some(Some(&"some style".into())));
