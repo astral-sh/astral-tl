@@ -188,12 +188,25 @@ impl<'a> Parser<'a> {
             if let Some((key, value)) = self.parse_attribute() {
                 let has_value = value.is_some();
                 let value: Option<Bytes<'a>> = value.map(Into::into);
+                let key = Bytes::from(key).into_ascii_lowercase();
 
-                match key {
-                    b"id" => attributes.id = value,
-                    b"class" => attributes.class = value,
-                    _ => attributes.raw.insert(key.into(), value),
-                };
+                match key.as_bytes() {
+                    b"id" => {
+                        if attributes.id.is_none() {
+                            attributes.id = Some(value);
+                        }
+                    }
+                    b"class" => {
+                        if attributes.class.is_none() {
+                            attributes.class = Some(value);
+                        }
+                    }
+                    _ => {
+                        if !attributes.raw.contains_key(&key) {
+                            attributes.raw.insert(key, value);
+                        }
+                    }
+                }
 
                 // Only advance past the delimiter if we read a value.
                 if has_value && !simd::is_closing(self.stream.current_cpy()?) {
@@ -261,7 +274,7 @@ impl<'a> Parser<'a> {
                 self.options.is_tracking_ids(),
             );
 
-            if let (true, Some(bytes)) = (track_classes, &tag._attributes.class) {
+            if let (true, Some(Some(bytes))) = (track_classes, &tag._attributes.class) {
                 let s = bytes
                     .as_bytes_borrowed()
                     .and_then(|x| std::str::from_utf8(x).ok())
@@ -277,7 +290,7 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            if let (true, Some(bytes)) = (track_ids, &tag._attributes.id) {
+            if let (true, Some(Some(bytes))) = (track_ids, &tag._attributes.id) {
                 self.ids.insert(bytes.clone(), handle);
             }
         }
