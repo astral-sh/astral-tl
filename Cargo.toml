@@ -1,7 +1,6 @@
 [package]
 name = "astral-tl"
-version = "0.7.11"
-authors = ["y21"]
+version = "0.8.0"
 edition = "2021"
 license = "MIT"
 description = "Fast HTML parser written in pure Rust"
