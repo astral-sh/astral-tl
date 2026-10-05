@@ -1,5 +1,10 @@
 # `astral-tl`
 
+> [!WARNING]
+>
+> `astral-tl` is deprecated. Use
+> [`astral-html`](https://github.com/astral-sh/astral-html) instead.
+
 tl is a fast HTML parser written in pure Rust.
 
 ## Provenance
