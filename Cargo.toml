@@ -29,3 +29,6 @@ harness = false
 
 [lib]
 name = "tl"
+
+[badges]
+maintenance.status = "deprecated"
