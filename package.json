@@ -1,0 +1,10 @@
+{
+  "name": "astral-tl-dev",
+  "private": true,
+  "engines": {
+    "npm": ">=11.10.0"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2"
+  }
+}
